@@ -1,6 +1,79 @@
+import { gql } from "graphql-request";
+import { GraphQLResponse } from "graphql-request/dist/types";
 import Head from "next/head";
+import Image from "next/image";
+import { FC, useState } from "react";
+import { useQuery } from "react-query";
+import Date from "../components/Date";
+import Pagination from "../components/Pagination";
+import SearchComponent from "../components/SearchComponent";
+import WebsiteOpenerAnimator from "../components/WebsiteLoaderAnimator";
+import { GetAllLaunchesQuery, useGetAllLaunchesQuery } from "../src/generated/graphql";
+import graphqlRequestClient from "../src/lib/client/graphqlRequestClient";
+
+// const GET_ALL_LAUNCHES = gql`
+//   query GetAllLaunches {
+//     launchesPast(limit: 10) {
+//       mission_name
+//       launch_date_local
+//       launch_site {
+//         site_name_long
+//       }
+//       launch_success
+//       links {
+//         wikipedia
+//       }
+//       rocket {
+//         rocket_name
+//         first_stage {
+//           cores {
+//             flight
+//             core {
+//               reuse_count
+//               status
+//             }
+//           }
+//         }
+//         second_stage {
+//           payloads {
+//             payload_type
+//             payload_mass_kg
+//           }
+//         }
+//         rocket_type
+//       }
+//       ships {
+//         name
+//         home_port
+//         image
+//       }
+//     }
+//   }
+// `;
 
 export default function Home() {
+  // const { isLoading, data, isError } = useQuery<GraphQLResponse, Error>(
+  //   ["launches"],
+  //   () => graphqlRequestClient.request(GET_ALL_LAUNCHES),
+  //   {
+  //     select: (data) => data.launchesPast,
+  //   }
+  // );
+  const { data, isLoading, isError } = useGetAllLaunchesQuery(graphqlRequestClient);
+  const [compareList, setCompareList] = useState([] as LaunchDetails[]);
+
+  const handleCompareAction = (details: LaunchDetails, actionType: "add" | "remove", callback: Function) => {
+    if (compareList.length >= 2 && actionType === "add") return; // allow only 2 items to be compared
+
+    if (actionType === "add") {
+      setCompareList((prev) => [...prev, details]);
+    } else {
+      const updatedList = compareList.filter((item) => item.mission_name !== details.mission_name);
+      setCompareList(updatedList);
+    }
+    callback();
+  };
+
   return (
     <>
       <Head>
@@ -9,14 +82,268 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <main>
-        {/* --------------------------------- Header --------------------------------- */}
-        <header>{/* Logo */}</header>
-        {/* ------------------------------ Hero Section ------------------------------ */}
-        <section>{/* Search Section */}</section>
-        <section>{/* Launches List Section */}</section>
-        <section>{/* Pagination Section */}</section>
-      </main>
+      <div className="h-screen w-screen font-serif text-gray-100">
+        <main className="bg-gray-900  shadow px-6 ">
+          {/* <WebsiteOpenerAnimator /> */}
+          {/* --------------------------------- Header --------------------------------- */}
+          <header>{/* Logo */}</header>
+          {/* ------------------------------ Hero Section ------------------------------ */}
+          <section className="p-4 my-4 h-[8vh]">
+            {/* Search Section */}
+
+            <SearchComponent />
+          </section>
+          <section className=" grid grid-cols-12 gap-x-6 ">
+            {/* Launches List Section */}
+            <section className=" flex flex-col col-span-9">
+              <div className=" flex flex-col space-y-4 overflow-y-scroll h-[78vh]">
+                {data?.launchesPast?.map((launch) => (
+                  //! expecting mission name to be unique
+                  <LaunchCard
+                    key={launch?.mission_name}
+                    launchDetails={launch as LaunchDetails}
+                    handleCompareAction={handleCompareAction}
+                  />
+                ))}
+              </div>
+              <div className="flex-1  mt-8">
+                <Pagination />
+              </div>
+            </section>
+            <section className="col-span-3 ">
+              <CompareSection list={compareList} />
+            </section>
+          </section>
+        </main>
+      </div>
     </>
   );
 }
+
+const CompareSection = ({ list }: { list: LaunchDetails[] }) => {
+  return (
+    <div className="flex flex-col space-y-4 p-2">
+      <button
+        className={`inline-flex  px-4 py-3 items-center justify-center  text-sm font-medium rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 ${
+          list.length < 2 && "cursor-not-allowed"
+        } `}
+        disabled={list.length < 2}
+      >
+        <CompareIcon />
+        <span className="ml-2 text-base">Compare Launches</span>
+      </button>
+      {list.map((launch) => (
+        <LaunchCard key={launch?.mission_name} launchDetails={launch as LaunchDetails} isCompareMode />
+      ))}
+    </div>
+  );
+};
+
+type LaunchDetails = NonNullable<NonNullable<GetAllLaunchesQuery["launchesPast"]>[number]>;
+// shows individual launch details
+const LaunchCard = ({
+  launchDetails,
+  isCompareMode = false,
+  handleCompareAction,
+}: {
+  launchDetails: LaunchDetails;
+  isCompareMode?: boolean;
+  handleCompareAction?: (details: LaunchDetails, actionType: "add" | "remove", callback: () => void) => void;
+}) => {
+  const [addedToCompareList, setAddedToCompareList] = useState(false);
+
+  const { mission_name, launch_date_local, launch_site, launch_success, rocket } = launchDetails;
+
+  return (
+    <div className="bg-gray-800 border-gray-700 border rounded-md shadow-2xl p-4">
+      <div className=" space-x-4 flex items-center">
+        <h3 className="text-xl inline">{mission_name}</h3>
+        {!isCompareMode ? (
+          <>
+            <Badge type={launch_success ? "success" : "failure"} />
+            <Date
+              date={launch_date_local}
+              style={{
+                marginLeft: "auto",
+              }}
+            />
+          </>
+        ) : null}
+      </div>
+      <h6 className="text-sm text-gray-300 my-1">Site : {launch_site?.site_name_long}</h6>
+      <div className={`flex ${isCompareMode ? "mt-0" : "mt-4"}`}>
+        <div className="flex space-x-12  flex-1 items-end">
+          <div className="flex flex-col space-y-2 justify-center items-center w-max ">
+            {!isCompareMode && <RocketIcon />}
+            <p className="text-base">
+              {rocket?.rocket_name} ({rocket?.rocket_type})
+            </p>
+          </div>
+          {!isCompareMode ? (
+            <>
+              <div className="text-base  flex-col flex ">
+                <div className="flex-1 text-sm">
+                  <p>Flight: {rocket?.first_stage?.cores?.[0]?.flight}</p>
+                  <p>Reuse Count: {rocket?.first_stage?.cores?.[0]?.core?.reuse_count}</p>
+                  <p>Core Status: {rocket?.first_stage?.cores?.[0]?.core?.status || "unknown"}</p>
+                </div>
+                <TextInBWLine text="stage 1" />
+              </div>
+
+              <div className="text-sm flex-col flex ">
+                <div className="flex-1">
+                  <p>Payload type : {rocket?.second_stage?.payloads?.[0]?.payload_type} </p>
+                  <p>
+                    Payload mass :{" "}
+                    {rocket?.second_stage?.payloads?.[0]?.payload_mass_kg
+                      ? `${rocket?.second_stage?.payloads?.[0]?.payload_mass_kg} kg`
+                      : "unknown"}
+                  </p>
+                </div>
+                <TextInBWLine text="stage 2" />
+              </div>
+            </>
+          ) : null}
+        </div>
+        {!isCompareMode ? (
+          <>
+            <div className=" flex space-x-4  items-end justify-center  ">
+              <Button Icon={ArrowUpRight} text="Ships" />
+              <Button Icon={DocumentIcon} text="Know more" variant="outlined" />
+              <Button
+                Icon={CompareIcon}
+                text={addedToCompareList ? "Remove from compare" : "Add to Compare"}
+                variant="outlined"
+                onClick={() => {
+                  handleCompareAction?.(launchDetails, addedToCompareList ? "remove" : "add", () =>
+                    setAddedToCompareList((prev) => !prev)
+                  );
+                }}
+              />
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+};
+
+const DocumentIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className="w-5 h-5"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+    />
+  </svg>
+);
+
+const ArrowUpRight = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className="w-5 h-5"
+  >
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+  </svg>
+);
+
+const RocketIcon = () => (
+  <svg width="16" height="20" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-12 h-12">
+    <path
+      d="M8 0C8 0 3 2 3 10C3 13.1 3.76 15.75 4.67 17.83C4.82991 18.1806 5.08768 18.4775 5.41233 18.6851C5.73698 18.8926 6.11468 19.002 6.5 19H9.5C9.88532 19.002 10.263 18.8926 10.5877 18.6851C10.9123 18.4775 11.1701 18.1806 11.33 17.83C12.25 15.75 13 13.1 13 10C13 2 8 0 8 0ZM9.5 17H6.5C5.5 14.76 5 12.41 5 10C5 5.36 6.9 3.2 8 2.33C9.1 3.2 11 5.36 11 10C11 12.41 10.5 14.76 9.5 17ZM16 20L12.14 18.45C12.84 16.92 13.34 15.34 13.65 13.73M3.86 18.45L0 20L2.35 13.73C2.66 15.34 3.16 16.92 3.86 18.45ZM8 10C6.9 10 6 9.1 6 8C6 6.9 6.9 6 8 6C9.1 6 10 6.9 10 8C10 9.1 9.1 10 8 10Z"
+      fill="white"
+    />
+  </svg>
+);
+
+const CompareIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className="w-5 h-5"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
+    />
+  </svg>
+);
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  Icon: React.ComponentType<any>;
+  text: string;
+  variant?: "solid" | "outlined";
+}
+
+const Button = ({ Icon, text, variant = "solid", ...rest }: ButtonProps) => (
+  <button
+    // className={`inline-flex items-center px-4 py-1    text-sm font-medium rounded-lg ${
+    //   variant === "solid"
+    //     ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
+    //     : "border border-gray-300 text-gray-300 hover:bg-transparent"
+    // }`}
+    className="inline-flex items-center px-3 py-1  text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-900 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+    {...rest}
+  >
+    <Icon />
+    <span className="ml-2 text-xs">{text}</span>
+  </button>
+);
+
+const Badge = ({ type }: { type: "success" | "failure" }) => (
+  <span
+    className={`text-xs inline-block py-1 px-3 leading-none text-center whitespace-nowrap align-baseline h-fit  text-white rounded-full ${
+      type === "success" ? "border-green-600 bg-green-800" : "border-red-600 bg-red-800"
+    }`}
+  >
+    {type}
+  </span>
+);
+
+const TextInBWLine = ({ text }: { text: string }) => {
+  return (
+    <h2 className="w-full text-center border-b-[2px] border-orange-300 mt-3 mx-0 leading-[4px]">
+      <span className="px-2 text-md bg-gray-800 text-orange-300">{text}</span>
+    </h2>
+  );
+};
+
+type X = {
+  __typename: "Launch";
+  launches: Array<{
+    mission_name: string;
+    rocket_name: string;
+  } | null> | null;
+};
+
+type y = NonNullable<NonNullable<X["launches"]>[number]>;
+
+// type Extract<T, U> = T extends U ? T : never;
+
+// type Y = Extract<X['launches'], Array<{name: string, home_port: string} | null>>;
+// type ExtractElementType<T> = Extract<T, Array<{name: string, home_port: string} | null>>;
+
+// type YX = ExtractElementType<X['launches']>;
+// type Y = NonNullable<X["launches"]>;
+// type NonNullableElementType<T> = NonNullable<T>;
+
+// type YX = NonNullableElementType<X['launches']>;
+// type Y = NonNullable<Extract<X['launches'], Array<{name: string, home_port: string} | null>>>;
+type NonNullableExtractedElementType<T> = NonNullable<Extract<T, Array<{ name: string; home_port: string } | null>>>;
+
+// type Y = NonNullableExtractedElementType<X['launches']>[number]
