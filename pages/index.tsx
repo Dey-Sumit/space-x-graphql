@@ -2,13 +2,14 @@ import { gql } from "graphql-request";
 import { GraphQLResponse } from "graphql-request/dist/types";
 import Head from "next/head";
 import Image from "next/image";
-import { FC, useState } from "react";
-import { useQuery } from "react-query";
+import { FC, useEffect, useState } from "react";
+import InfiniteScroll from "react-infinite-scroll-component";
+import { InfiniteData, useQuery } from "react-query";
 import Date from "../components/Date";
 import Pagination from "../components/Pagination";
 import SearchComponent from "../components/SearchComponent";
 import WebsiteOpenerAnimator from "../components/WebsiteLoaderAnimator";
-import { GetAllLaunchesQuery, useGetAllLaunchesQuery } from "../src/generated/graphql";
+import { GetAllLaunchesQuery, useGetAllLaunchesQuery, useInfiniteGetAllLaunchesQuery } from "../src/generated/graphql";
 import graphqlRequestClient from "../src/lib/client/graphqlRequestClient";
 
 // const GET_ALL_LAUNCHES = gql`
@@ -50,6 +51,20 @@ import graphqlRequestClient from "../src/lib/client/graphqlRequestClient";
 //     }
 //   }
 // `;
+function flattenArray(arr) {
+  return arr.reduce((acc, val) => (Array.isArray(val) ? acc.concat(flattenArray(val)) : acc.concat(val)), []);
+}
+
+const getData = (data: InfiniteData<GetAllLaunchesQuery> | undefined) => {
+  let y = [];
+  data?.pages.forEach((page) => {
+    y = [...y, ...page.launchesPast];
+  });
+  return {
+    data: y,
+    dataLength: y.length,
+  };
+};
 
 export default function Home() {
   // const { isLoading, data, isError } = useQuery<GraphQLResponse, Error>(
@@ -59,7 +74,7 @@ export default function Home() {
   //     select: (data) => data.launchesPast,
   //   }
   // );
-  const { data, isLoading, isError } = useGetAllLaunchesQuery(graphqlRequestClient);
+  // const { data, isLoading, isError } = useGetAllLaunchesQuery(graphqlRequestClient);
   const [compareList, setCompareList] = useState([] as LaunchDetails[]);
 
   const handleCompareAction = (details: LaunchDetails, actionType: "add" | "remove", callback: Function) => {
@@ -74,6 +89,31 @@ export default function Home() {
     callback();
   };
 
+  const [page, setPage] = useState(0);
+  const { data, isLoading, isFetching, error, fetchNextPage } = useInfiniteGetAllLaunchesQuery(
+    "offset",
+    graphqlRequestClient,
+    {
+      offset: 0,
+    },
+    {
+      getNextPageParam: (lastPage) => {
+        if (lastPage.launchesPast!.length < 10) return undefined;
+        return 10 * (page + 1);
+      },
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  const [dataLength, setDataLength] = useState(0);
+  const [dataList, setDataList] = useState([] as LaunchDetails[]);
+  console.log({ length: getData(data).dataLength });
+
+  useEffect(() => {
+    setDataLength(getData(data).dataLength);
+    setDataList(getData(data).data);
+  }, [data]);
+
   return (
     <>
       <Head>
@@ -82,33 +122,60 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <div className="h-screen w-screen font-serif text-gray-100">
-        <main className="bg-gray-900  shadow px-6 ">
+      <div className="w-screen h-screen font-serif text-gray-100">
+        <main className="px-6 bg-gray-900 shadow ">
           {/* <WebsiteOpenerAnimator /> */}
           {/* --------------------------------- Header --------------------------------- */}
           <header>{/* Logo */}</header>
           {/* ------------------------------ Hero Section ------------------------------ */}
-          <section className="p-4 my-4 h-[8vh]">
+          <section className="p-4 h-[10vh] ">
             {/* Search Section */}
 
             <SearchComponent />
           </section>
-          <section className=" grid grid-cols-12 gap-x-6 ">
+          <section className="grid grid-cols-12 gap-x-6 ">
             {/* Launches List Section */}
-            <section className=" flex flex-col col-span-9">
-              <div className=" flex flex-col space-y-4 overflow-y-scroll h-[78vh]">
-                {data?.launchesPast?.map((launch) => (
-                  //! expecting mission name to be unique
-                  <LaunchCard
-                    key={launch?.mission_name}
-                    launchDetails={launch as LaunchDetails}
-                    handleCompareAction={handleCompareAction}
-                  />
-                ))}
+            <section className="flex flex-col col-span-9 ">
+              <div className="h-[90vh] overflow-y-scroll p-4" id="scrollableDiv">
+                <InfiniteScroll
+                  dataLength={dataLength} //This is important field to render the next data
+                  next={() => {
+                    fetchNextPage();
+                    setPage(page + 1);
+                  }}
+                  hasMore={true}
+                  loader={<h4>Loading...</h4>}
+                  endMessage={
+                    <p style={{ textAlign: "center" }}>
+                      <b>Yay! You have seen it all</b>
+                    </p>
+                  }
+                  scrollThreshold={0.9}
+                  className="flex flex-col space-y-4 "
+                  scrollableTarget="scrollableDiv"
+                >
+                  {dataList?.map((launch) => (
+                    //! expecting mission name to be unique
+                    <LaunchCard
+                      key={launch?.mission_name}
+                      launchDetails={launch as LaunchDetails}
+                      handleCompareAction={handleCompareAction}
+                    />
+                  ))}
+                </InfiniteScroll>
               </div>
-              <div className="flex-1  mt-8">
+
+              {/* <div className="flex-1 mt-8">
                 <Pagination />
-              </div>
+                <Button
+                  text="next"
+                  Icon={CompareIcon}
+                  onClick={() => {
+                    fetchNextPage();
+                    setPage((prev) => prev + 1);
+                  }}
+                />
+              </div> */}
             </section>
             <section className="col-span-3 ">
               <CompareSection list={compareList} />
@@ -122,7 +189,7 @@ export default function Home() {
 
 const CompareSection = ({ list }: { list: LaunchDetails[] }) => {
   return (
-    <div className="flex flex-col space-y-4 p-2">
+    <div className="flex flex-col p-2 space-y-4">
       <button
         className={`inline-flex  px-4 py-3 items-center justify-center  text-sm font-medium rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 ${
           list.length < 2 && "cursor-not-allowed"
@@ -155,9 +222,9 @@ const LaunchCard = ({
   const { mission_name, launch_date_local, launch_site, launch_success, rocket } = launchDetails;
 
   return (
-    <div className="bg-gray-800 border-gray-700 border rounded-md shadow-2xl p-4">
-      <div className=" space-x-4 flex items-center">
-        <h3 className="text-xl inline">{mission_name}</h3>
+    <div className="p-4 bg-gray-800 border border-gray-700 rounded-md shadow-2xl">
+      <div className="flex items-center space-x-4 ">
+        <h3 className="inline text-xl">{mission_name}</h3>
         {!isCompareMode ? (
           <>
             <Badge type={launch_success ? "success" : "failure"} />
@@ -170,10 +237,10 @@ const LaunchCard = ({
           </>
         ) : null}
       </div>
-      <h6 className="text-sm text-gray-300 my-1">Site : {launch_site?.site_name_long}</h6>
+      <h6 className="my-1 text-sm text-gray-300">Site : {launch_site?.site_name_long}</h6>
       <div className={`flex ${isCompareMode ? "mt-0" : "mt-4"}`}>
-        <div className="flex space-x-12  flex-1 items-end">
-          <div className="flex flex-col space-y-2 justify-center items-center w-max ">
+        <div className="flex items-end flex-1 space-x-12">
+          <div className="flex flex-col items-center justify-center space-y-2 w-max ">
             {!isCompareMode && <RocketIcon />}
             <p className="text-base">
               {rocket?.rocket_name} ({rocket?.rocket_type})
@@ -181,7 +248,7 @@ const LaunchCard = ({
           </div>
           {!isCompareMode ? (
             <>
-              <div className="text-base  flex-col flex ">
+              <div className="flex flex-col text-base ">
                 <div className="flex-1 text-sm">
                   <p>Flight: {rocket?.first_stage?.cores?.[0]?.flight}</p>
                   <p>Reuse Count: {rocket?.first_stage?.cores?.[0]?.core?.reuse_count}</p>
@@ -190,7 +257,7 @@ const LaunchCard = ({
                 <TextInBWLine text="stage 1" />
               </div>
 
-              <div className="text-sm flex-col flex ">
+              <div className="flex flex-col text-sm ">
                 <div className="flex-1">
                   <p>Payload type : {rocket?.second_stage?.payloads?.[0]?.payload_type} </p>
                   <p>
@@ -207,7 +274,7 @@ const LaunchCard = ({
         </div>
         {!isCompareMode ? (
           <>
-            <div className=" flex space-x-4  items-end justify-center  ">
+            <div className="flex items-end justify-center space-x-4 ">
               <Button Icon={ArrowUpRight} text="Ships" />
               <Button Icon={DocumentIcon} text="Know more" variant="outlined" />
               <Button
@@ -297,7 +364,7 @@ const Button = ({ Icon, text, variant = "solid", ...rest }: ButtonProps) => (
     //     ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
     //     : "border border-gray-300 text-gray-300 hover:bg-transparent"
     // }`}
-    className="inline-flex items-center px-3 py-1  text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-900 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+    className="inline-flex items-center px-3 py-1 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-900 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
     {...rest}
   >
     <Icon />
@@ -318,7 +385,7 @@ const Badge = ({ type }: { type: "success" | "failure" }) => (
 const TextInBWLine = ({ text }: { text: string }) => {
   return (
     <h2 className="w-full text-center border-b-[2px] border-orange-300 mt-3 mx-0 leading-[4px]">
-      <span className="px-2 text-md bg-gray-800 text-orange-300">{text}</span>
+      <span className="px-2 text-orange-300 bg-gray-800 text-md">{text}</span>
     </h2>
   );
 };

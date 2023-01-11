@@ -1,7 +1,6 @@
 import { GraphQLClient } from "graphql-request";
 import { RequestInit } from "graphql-request/dist/types.dom";
-import { useQuery, UseQueryOptions } from "react-query";
-
+import { useQuery, useInfiniteQuery, UseQueryOptions, UseInfiniteQueryOptions } from "react-query";
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
@@ -967,7 +966,9 @@ export type Volume = {
   cubic_meters?: Maybe<Scalars["Int"]>;
 };
 
-export type GetAllLaunchesQueryVariables = Exact<{ [key: string]: never }>;
+export type GetAllLaunchesQueryVariables = Exact<{
+  offset?: InputMaybe<Scalars["Int"]>;
+}>;
 
 export type GetAllLaunchesQuery = {
   __typename?: "Query";
@@ -1009,8 +1010,8 @@ export type GetAllLaunchesQuery = {
 };
 
 export const GetAllLaunchesDocument = `
-    query GetAllLaunches {
-  launchesPast(limit: 10) {
+    query GetAllLaunches($offset: Int) {
+  launchesPast(limit: 10, offset: $offset) {
     mission_name
     launch_date_local
     launch_site {
@@ -1056,5 +1057,23 @@ export const useGetAllLaunchesQuery = <TData = GetAllLaunchesQuery, TError = unk
   useQuery<GetAllLaunchesQuery, TError, TData>(
     variables === undefined ? ["GetAllLaunches"] : ["GetAllLaunches", variables],
     fetcher<GetAllLaunchesQuery, GetAllLaunchesQueryVariables>(client, GetAllLaunchesDocument, variables, headers),
+    options
+  );
+export const useInfiniteGetAllLaunchesQuery = <TData = GetAllLaunchesQuery, TError = unknown>(
+  pageParamKey: keyof GetAllLaunchesQueryVariables,
+  client: GraphQLClient,
+  variables?: GetAllLaunchesQueryVariables,
+  options?: UseInfiniteQueryOptions<GetAllLaunchesQuery, TError, TData>,
+  headers?: RequestInit["headers"]
+) =>
+  useInfiniteQuery<GetAllLaunchesQuery, TError, TData>(
+    variables === undefined ? ["GetAllLaunches.infinite"] : ["GetAllLaunches.infinite", variables],
+    (metaData) =>
+      fetcher<GetAllLaunchesQuery, GetAllLaunchesQueryVariables>(
+        client,
+        GetAllLaunchesDocument,
+        { ...variables, ...(metaData.pageParam ? { [pageParamKey]: metaData.pageParam } : {}) },
+        headers
+      )(),
     options
   );
