@@ -1,12 +1,40 @@
 import React, { ChangeEvent, useState } from "react";
+import { useGetLaunchesByMissionNameQuery } from "../src/generated/graphql";
+import graphqlRequestClient from "../src/lib/client/graphqlRequestClient";
 
 const SearchComponent = () => {
   const [searchValue, setSearchValue] = useState("");
   const handleSearch = (e: ChangeEvent<HTMLInputElement>) => {
+    //! Add debounce here
     setSearchValue(e.target.value);
+    if (e.target.value === "") {
+      setShowSearchBar(false);
+      return;
+    }
+    setShowSearchBar(true);
+    // fetchMissionsByName();
   };
+  const [showSearchBar, setShowSearchBar] = useState(false);
+  const { data: searchResults } = useGetLaunchesByMissionNameQuery(
+    graphqlRequestClient,
+    {
+      name: searchValue,
+    },
+    {
+      enabled: Boolean(searchValue),
+    }
+  );
+
   return (
-    <form className="max-w-[720px] mx-auto">
+    <form
+      className="max-w-[720px] mx-auto relative flex-1"
+      onBlur={() => {
+        setShowSearchBar(false);
+      }}
+      onFocus={() => {
+        setShowSearchBar(true);
+      }}
+    >
       <label htmlFor="default-search" className="mb-2 text-sm font-medium text-gray-900 sr-only dark:text-white">
         Search
       </label>
@@ -17,9 +45,10 @@ const SearchComponent = () => {
         <input
           type="search"
           id="default-search"
-          className="block w-full p-4 pl-10 text-sm text-gray-900 border border-gray-900 shadow-sm rounded-lg bg-gray-800 focus:ring-blue-500 focus:border-blue-500 "
+          className="block w-full p-4 pl-10 text-sm text-white bg-gray-800 border border-gray-900 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 "
           placeholder="Search mission names"
           required
+          onChange={handleSearch}
         />
         <button
           type="submit"
@@ -28,6 +57,17 @@ const SearchComponent = () => {
           Search
         </button>
       </div>
+      {showSearchBar && (
+        <div className="absolute left-0 right-0 p-2 bg-gray-800 rounded-md shadow-xl top-14">
+          {searchResults?.missions?.length === 0 && <p className="text-gray-400">No results found</p>}
+          {searchResults?.missions?.map((mission) => (
+            <button key={mission?.id} className="flex flex-col justify-start w-full p-2 border-b border-gray-600 ">
+              <h6>{mission?.name}</h6>
+              <p>{mission?.description?.slice(0, 16)}</p>
+            </button>
+          ))}
+        </div>
+      )}
     </form>
   );
 };

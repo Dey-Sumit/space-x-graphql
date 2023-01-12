@@ -1,0 +1,46 @@
+query GetCompareLaunches($id1: ID!, $id2: ID!) {
+  launch1: launch(id: $id1) {
+    id
+    launch_success
+    static_fire_date_unix
+    tentative_max_precision
+    rocket {
+      rocket_name
+      rocket_type
+      first_stage {
+        cores {
+          land_success
+        }
+      }
+      second_stage {
+        payloads {
+          payload_type
+          payload_mass_kg
+        }
+      }
+    }
+    mission_name
+  }
+  launch2: launch(id: $id2) {
+    id
+    launch_success
+    static_fire_date_unix
+    tentative_max_precision
+    rocket {
+      rocket_name
+      rocket_type
+      first_stage {
+        cores {
+          land_success
+        }
+      }
+      second_stage {
+        payloads {
+          payload_type
+          payload_mass_kg
+        }
+      }
+    }
+    mission_name
+  }
+}

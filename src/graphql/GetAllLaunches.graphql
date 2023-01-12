@@ -1,6 +1,7 @@
  query GetAllLaunches( $offset: Int) {
     launchesPast(limit: 10, offset: $offset) {
       mission_name
+      id
       launch_date_local
       launch_site {
         site_name_long
