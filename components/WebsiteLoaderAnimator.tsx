@@ -68,7 +68,6 @@ const SplashScreen = () => {
       setReadyToLaunch(true);
     }, 1900);
   }, []);
-  console.log({ readyToRemoveLogo });
 
   return (
     <motion.div

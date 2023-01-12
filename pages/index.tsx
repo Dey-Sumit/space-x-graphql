@@ -88,7 +88,7 @@ export default function Home() {
             <SearchComponent />
           </header>
 
-          <section className="grid grid-cols-12 px-6 gap-x-6">
+          <section className="grid grid-cols-12 px-4 gap-x-6">
             {/* Launches List Section */}
             <section className="flex flex-col col-span-9 ">
               <div className="h-[90vh] overflow-y-scroll  p-4" id="scrollableDiv">
@@ -201,16 +201,16 @@ const LaunchCard = ({
             {!isCompareMode ? (
               <>
                 <div className="flex flex-col text-base ">
-                  <div className="flex-1 text-sm">
-                    <p>Flight: {rocket?.first_stage?.cores?.[0]?.flight}</p>
-                    <p>Reuse Count: {rocket?.first_stage?.cores?.[0]?.core?.reuse_count}</p>
-                    <p>Core Status: {rocket?.first_stage?.cores?.[0]?.core?.status || "unknown"}</p>
+                  <div className="flex flex-col flex-1 space-y-1 text-sm">
+                    <p>Flight : {rocket?.first_stage?.cores?.[0]?.flight}</p>
+                    <p>Reuse Count : {rocket?.first_stage?.cores?.[0]?.core?.reuse_count}</p>
+                    <p>Core Status : {rocket?.first_stage?.cores?.[0]?.core?.status || "unknown"}</p>
                   </div>
                   <TextInBWLine text="stage 1" />
                 </div>
 
                 <div className="flex flex-col text-sm ">
-                  <div className="flex-1">
+                  <div className="flex-col flex-1 space-y-1">
                     <p>Payload type : {rocket?.second_stage?.payloads?.[0]?.payload_type} </p>
                     <p>
                       Payload mass :{" "}
