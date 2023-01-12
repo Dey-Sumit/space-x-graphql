@@ -1,27 +1,29 @@
 import React, { ChangeEvent, useState } from "react";
 import { useGetLaunchesByMissionNameQuery } from "../src/generated/graphql";
+import { useDebounce } from "../src/hooks/useDebounce";
 import graphqlRequestClient from "../src/lib/client/graphqlRequestClient";
 
 const SearchComponent = () => {
   const [searchValue, setSearchValue] = useState("");
+  const debouncedSearchValue = useDebounce(searchValue, 500);
+
   const handleSearch = (e: ChangeEvent<HTMLInputElement>) => {
-    //! Add debounce here
     setSearchValue(e.target.value);
     if (e.target.value === "") {
       setShowSearchBar(false);
       return;
     }
     setShowSearchBar(true);
-    // fetchMissionsByName();
   };
   const [showSearchBar, setShowSearchBar] = useState(false);
   const { data: searchResults } = useGetLaunchesByMissionNameQuery(
     graphqlRequestClient,
     {
-      name: searchValue,
+      name: debouncedSearchValue,
     },
     {
-      enabled: Boolean(searchValue),
+      enabled: Boolean(debouncedSearchValue),
+      refetchOnWindowFocus: false,
     }
   );
 
@@ -59,11 +61,17 @@ const SearchComponent = () => {
       </div>
       {showSearchBar && (
         <div className="absolute left-0 right-0 p-2 bg-gray-800 rounded-md shadow-xl top-14">
-          {searchResults?.missions?.length === 0 && <p className="text-gray-400">No results found</p>}
-          {searchResults?.missions?.map((mission) => (
-            <button key={mission?.id} className="flex flex-col justify-start w-full p-2 border-b border-gray-600 ">
-              <h6>{mission?.name}</h6>
-              <p>{mission?.description?.slice(0, 16)}</p>
+          {searchResults?.launches?.length === 0 && <p className="text-gray-400">No results found</p>}
+          {searchResults?.launches?.map((launch) => (
+            <button
+              key={launch?.id}
+              className="flex flex-col justify-start w-full p-2 space-y-[2px] border-b border-gray-600  truncate "
+            >
+              <div className="flex items-center space-x-2 overflow-hidden">
+                <CubeIcon />
+                <h6>{launch?.mission_name}</h6>
+              </div>
+              <p className="pl-6 text-sm ">{launch?.details}</p>
             </button>
           ))}
         </div>
@@ -89,5 +97,21 @@ const SearchIcon = () => (
       stroke-width="2"
       d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
     ></path>
+  </svg>
+);
+const CubeIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className="w-4 h-4"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M21 7.5l-2.25-1.313M21 7.5v2.25m0-2.25l-2.25 1.313M3 7.5l2.25-1.313M3 7.5l2.25 1.313M3 7.5v2.25m9 3l2.25-1.313M12 12.75l-2.25-1.313M12 12.75V15m0 6.75l2.25-1.313M12 21.75V19.5m0 2.25l-2.25-1.313m0-16.875L12 2.25l2.25 1.313M21 14.25v2.25l-2.25 1.313m-13.5 0L3 16.5v-2.25"
+    />
   </svg>
 );

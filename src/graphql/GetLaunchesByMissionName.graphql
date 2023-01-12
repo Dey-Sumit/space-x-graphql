@@ -1,9 +1,7 @@
- query GetLaunchesByMissionName( $name: String)  {
-  missions(find: {name: $name}, limit: 5) {
-    name
-    description
+query GetLaunchesByMissionName($name: String) {
+  launches(find: { mission_name: $name }, limit: 5) {
+    mission_name
+    details
     id
   }
 }
-
-  

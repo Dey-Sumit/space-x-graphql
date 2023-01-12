@@ -1007,7 +1007,7 @@ export type GetLaunchesByMissionNameQueryVariables = Exact<{
 }>;
 
 
-export type GetLaunchesByMissionNameQuery = { __typename?: 'Query', missions?: Array<{ __typename?: 'Mission', name?: string | null, description?: string | null, id?: string | null } | null> | null };
+export type GetLaunchesByMissionNameQuery = { __typename?: 'Query', launches?: Array<{ __typename?: 'Launch', mission_name?: string | null, details?: string | null, id?: string | null } | null> | null };
 
 export type GetCompareLaunchesQueryVariables = Exact<{
   id1: Scalars['ID'];
@@ -1090,9 +1090,9 @@ export const useInfiniteGetAllLaunchesQuery = <
 
 export const GetLaunchesByMissionNameDocument = `
     query GetLaunchesByMissionName($name: String) {
-  missions(find: {name: $name}, limit: 5) {
-    name
-    description
+  launches(find: {mission_name: $name}, limit: 5) {
+    mission_name
+    details
     id
   }
 }
